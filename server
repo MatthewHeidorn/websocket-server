@@ -1,0 +1,50 @@
+import asyncio
+import websockets
+import json
+
+ESP32_CLIENT = None
+APP_CLIENT = None
+
+async def handler(websocket, path):
+        global ESP32_CLIENT, APP_CLIENT
+
+        print(f"New client connected from {websocket.remote_address}")
+
+        try:
+                initial_message = await websocket.recv()
+                client_info = json.loads(initial_message)
+
+                if client_info.get("type") == "esp32":
+                    ESP32_CLIENT = websocket
+                    print("ESP32 client registered.")
+                    async for message in websocket:
+                        print(f"Received from ESP32: {message}")
+                        if APP_CLIENT:
+                            await APP_CLIENT.send(message)
+
+                elif client_info.get("type") == "app":
+                      APP_CLIENT = websocket
+                      print("App client registered.")
+                      await websocket.wait_closed()
+
+                else:
+                    print("Unknown client type. Closing connection.")
+                    await websocket.close()
+
+        except (websockets.exceptions.ConnectionClosedError, json.JSONDecodeError) as e:
+             print(f"Client disconnected or sent invalid data: {e}")
+        finally:
+            if websocket == ESP32_CLIENT:
+                ESP32_CLIENT = None
+                print ("ESP32 client disconnected.")
+            if websocket == APP_CLIENT:
+                APP_CLIENT = None
+                print("App client disconnected.")
+
+async def main()
+    async with websockets.serve(handler, "0.0.0.0", 8765):
+         print("WebSocket server started on port 8765")
+         await asyncio.Future()
+
+if __name__ == "__main__":
+     asyncio.run(main())
