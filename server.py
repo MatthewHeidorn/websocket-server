@@ -41,7 +41,7 @@ async def handler(websocket, path):
                 APP_CLIENT = None
                 print("App client disconnected.")
 
-async def main()
+async def main():
     async with websockets.serve(handler, "0.0.0.0", 8765):
          print("WebSocket server started on port 8765")
          await asyncio.Future()
