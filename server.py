@@ -1,50 +1,53 @@
 import asyncio
-import websockets
-import json
+import os
+import json # Optional: for structured data
+from websockets.server import serve
 
-ESP32_CLIENT = None
-APP_CLIENT = None
+# A set to keep track of all connected clients (Android app, ESP32, etc.)
+CONNECTED_CLIENTS = set()async def handler(websocket):
+    """
+    This function is called for each new WebSocket connection.
+    """
+    # Add the new client to our set of connected clients
+    CONNECTED_CLIENTS.add(websocket)
+    print(f"New client connected: {websocket.remote_address}")
+    
+    try:
+        # This loop runs as long as the connection is open
+        async for message in websocket:
+            print(f"Received message: {message}")
+            
+            # --- BROADCAST LOGIC ---
+            # Send the received message to all other connected clients.
+            # This is how the Android app will get the ESP32's data.
+            clients_to_send = [client for client in CONNECTED_CLIENTS if client != websocket]
+            
+            # Use asyncio.gather to send messages concurrently
+            if clients_to_send:
+                await asyncio.gather(
+                    *[client.send(message) for client in clients_to_send]
+                )
 
-async def handler(websocket, path):
-        global ESP32_CLIENT, APP_CLIENT
-
-        print(f"New client connected from {websocket.remote_address}")
-
-        try:
-                initial_message = await websocket.recv()
-                client_info = json.loads(initial_message)
-
-                if client_info.get("type") == "esp32":
-                    ESP32_CLIENT = websocket
-                    print("ESP32 client registered.")
-                    async for message in websocket:
-                        print(f"Received from ESP32: {message}")
-                        if APP_CLIENT:
-                            await APP_CLIENT.send(message)
-
-                elif client_info.get("type") == "app":
-                      APP_CLIENT = websocket
-                      print("App client registered.")
-                      await websocket.wait_closed()
-
-                else:
-                    print("Unknown client type. Closing connection.")
-                    await websocket.close()
-
-        except (websockets.exceptions.ConnectionClosedError, json.JSONDecodeError) as e:
-             print(f"Client disconnected or sent invalid data: {e}")
-        finally:
-            if websocket == ESP32_CLIENT:
-                ESP32_CLIENT = None
-                print ("ESP32 client disconnected.")
-            if websocket == APP_CLIENT:
-                APP_CLIENT = None
-                print("App client disconnected.")
+    finally:
+        # This code runs when the client disconnects
+        CONNECTED_CLIENTS.remove(websocket)
+        print(f"Client disconnected: {websocket.remote_address}")
 
 async def main():
-    async with websockets.serve(handler, "0.0.0.0", 8765):
-         print("WebSocket server started on port 8765")
-         await asyncio.Future()
+    """
+    The main function to start the server.
+    """
+    # 1. HOST: Listen on 0.0.0.0 to accept connections from Render's router
+    host = "0.0.0.0"
+
+    # 2. PORT: Get the port from Render's environment variable, default to 8080 for local testing
+    port = int(os.environ.get("PORT", 8080))
+    
+    print(f"Starting WebSocket server on {host}:{port}")
+
+    # Start the WebSocket server
+    async with serve(handler, host, port):
+        await asyncio.Future()  # Run forever
 
 if __name__ == "__main__":
-     asyncio.run(main())
+    asyncio.run(main())
