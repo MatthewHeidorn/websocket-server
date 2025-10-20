@@ -4,7 +4,9 @@ import json # Optional: for structured data
 from websockets.server import serve
 
 # A set to keep track of all connected clients (Android app, ESP32, etc.)
-CONNECTED_CLIENTS = set()async def handler(websocket):
+CONNECTED_CLIENTS = set()
+
+async def handler(websocket):
     """
     This function is called for each new WebSocket connection.
     """
