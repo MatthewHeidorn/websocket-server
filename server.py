@@ -43,7 +43,7 @@ async def main():
     host = "0.0.0.0"
 
     # 2. PORT: Get the port from Render's environment variable, default to 8080 for local testing
-    port = int(os.environ.get("PORT", 8080))
+    port = 10000
     
     print(f"Starting WebSocket server on {host}:{port}")
 
